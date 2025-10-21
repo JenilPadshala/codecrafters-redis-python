@@ -9,15 +9,14 @@ def handle_client_data(client_socket):
     """Callback for when a client socket has data to read."""
     try:
         data = client_socket.recv(BUF_SIZE)
-        if data:
-            print(f"Received data: {data} from {client_socket.getpeername()}")
-            client_socket.sendall(data)  # Echo back the received data
-        else:
-            print(f"Closing connection to {client_socket.getpeername()}")
+        if not data:
+            print("Client disconnected")
             selector.unregister(client_socket)
             client_socket.close()
+            return
+        if data == b"*1\r\n$4\r\nPING\r\n":
+            client_socket.sendall(b"+PONG\r\n")
     except ConnectionError:
-        print(f"Connection error with {client_socket.getpeername()}")
         selector.unregister(client_socket)
         client_socket.close()
 
