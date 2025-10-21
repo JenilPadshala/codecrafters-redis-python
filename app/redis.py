@@ -77,9 +77,10 @@ class Redis:
         # Handle negative indices
         if start_idx < 0:
             start_idx += len(lst)
+            start_idx = max(start_idx, 0)
         if end_idx < 0:
             end_idx += len(lst)
-        
+        # Adjust indices to be within bounds        
         if start_idx >= len(lst) or (start_idx > end_idx):
             return []
         if end_idx >= len(lst):
