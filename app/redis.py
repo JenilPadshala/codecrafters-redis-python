@@ -113,7 +113,7 @@ class Redis:
             return 0
         return len(self.list_store[key])
     
-    def lpop(self, key: str, n: Optional[Union[int, str]]) -> Optional[Union[deque, list]]:
+    def lpop(self, key: str, n: Optional[Union[int, str]]=None) -> Optional[Union[deque, list]]:
         """Remove and return the first 'n' elements of the list stored at key."""
         # if n is None, pop one element
         if not n:
