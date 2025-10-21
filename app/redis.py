@@ -74,6 +74,12 @@ class Redis:
         lst = self.list_store[key]
         start_idx = int(start)
         end_idx = int(end)
+        # Handle negative indices
+        if start_idx < 0:
+            start_idx += len(lst)
+        if end_idx < 0:
+            end_idx += len(lst)
+        
         if start_idx >= len(lst) or (start_idx > end_idx):
             return []
         if end_idx >= len(lst):
