@@ -28,7 +28,7 @@ class Redis:
                 expire_time = int(expire_time) * 1000  # convert to milliseconds
             elif opt.upper() == "PX":
                 expire_time = int(expire_time)
-            expire_at = datetime.now() + timedelta(milliseconds=expire_time)
+            expire_at = datetime.now(timezone.utc) + timedelta(milliseconds=expire_time)
         else:
             expire_at = datetime.fromtimestamp(0, tz=timezone.utc)  # no expiration
         self.kv_store[key] = {"value": value, "expire_at": expire_at}
