@@ -16,6 +16,11 @@ def handle_client_data(client_socket):
             return
         if data == b"*1\r\n$4\r\nPING\r\n":
             client_socket.sendall(b"+PONG\r\n")
+        
+        if data.startswith(b"*2\r\n$4\r\nECHO\r\n"):
+            parts = data.split(b"\r\n")
+            msg = parts[-2]
+            client_socket.sendall(b"$3\r\n"+str(msg).encode()+b"\r\n")
     except ConnectionError:
         selector.unregister(client_socket)
         client_socket.close()
