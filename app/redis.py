@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import TypedDict, Any
+from typing import TypedDict, Any, Optional
 
 class Record(TypedDict):
     value: str
@@ -28,13 +28,13 @@ class Redis:
             return self.rpush(*args)
     
     # ---- Command Implementations ----
-    def ping(self):
+    def ping(self) -> str:
         return "PONG"
     
-    def echo(self, msg: str):
+    def echo(self, msg: str) -> str:
         return msg
     
-    def set(self, key: str, value: str, opt=None, expire_time=None):
+    def set(self, key: str, value: str, opt=None, expire_time=None) -> str:
         if opt and expire_time:
             if opt.upper() == "EX":
                 expire_time = int(expire_time) * 1000  # convert to milliseconds
@@ -47,7 +47,7 @@ class Redis:
         print(self.kv_store)
         return "OK"
     
-    def get(self, key: str):
+    def get(self, key: str) -> Optional[str]:
         if key in self.kv_store:
             record = self.kv_store[key]
             expire_at = record["expire_at"]
@@ -60,7 +60,7 @@ class Redis:
         else:
             return None
     
-    def rpush(self, key: str, *values: str):
+    def rpush(self, key: str, *values: str) -> int:
         if key not in self.list_store:
             self.list_store[key] = []
         self.list_store[key].extend(values)
