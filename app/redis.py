@@ -33,15 +33,20 @@ class Redis:
             return self.lpush(*args)
         elif command == "LLEN" and len(args) == 1:
             return self.llen(*args)
+        elif command == "LPOP" and len(args) == 1:
+            return self.lpop(*args)
     
     # ---- Command Implementations ----
     def ping(self) -> str:
+        """Return PONG."""
         return "PONG"
     
     def echo(self, msg: str) -> str:
+        """Return the same message back."""
         return msg
     
     def set(self, key: str, value: str, opt=None, expire_time=None) -> str:
+        """Set the value of key with optional expiration."""
         if opt and expire_time:
             if opt.upper() == "EX":
                 expire_time = int(expire_time) * 1000  # convert to milliseconds
@@ -55,6 +60,7 @@ class Redis:
         return "OK"
     
     def get(self, key: str) -> Optional[str]:
+        """Get the value of key. If the key does not exist or is expired, return None."""
         if key in self.kv_store:
             record = self.kv_store[key]
             expire_at = record["expire_at"]
@@ -68,18 +74,21 @@ class Redis:
             return None
     
     def rpush(self, key: str, *values: str) -> int:
+        """Append one or more values to the end of the list stored at key."""
         if key not in self.list_store:
             self.list_store[key] = deque()
         self.list_store[key].extend(values)
         return len(self.list_store[key])
     
     def lpush(self, key: str, *values: str) -> int:
+        """Prepend one or more values to the beginning of the list stored at key."""
         if key not in self.list_store:
             self.list_store[key] = deque()
         self.list_store[key].extendleft(values)
         return len(self.list_store[key])
     
     def lrange(self, key: str, start: str, end: str) -> deque[str]:
+        """Return the specified elements of the list stored at key."""
         if key not in self.list_store:
             return deque()
         lst = self.list_store[key]
@@ -99,6 +108,13 @@ class Redis:
         return deque(islice(lst, start_idx, end_idx + 1))
     
     def llen(self, key: str) -> int:
+        """Return the length of the list stored at key."""
         if key not in self.list_store:
             return 0
         return len(self.list_store[key])
+    
+    def lpop(self, key: str) -> Optional[str]:
+        """Pop and return the first element of the list stored at key."""
+        if key not in self.list_store or len(self.list_store[key]) == 0:
+            return None
+        return self.list_store[key].popleft()
