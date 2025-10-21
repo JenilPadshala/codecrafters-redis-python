@@ -31,6 +31,8 @@ class Redis:
             return self.lrange(*args)
         elif command == "LPUSH" and len(args) >= 2:
             return self.lpush(*args)
+        elif command == "LLEN" and len(args) == 1:
+            return self.llen(*args)
     
     # ---- Command Implementations ----
     def ping(self) -> str:
@@ -95,4 +97,8 @@ class Redis:
         if end_idx >= len(lst):
             end_idx = len(lst) - 1
         return deque(islice(lst, start_idx, end_idx + 1))
-        
+    
+    def llen(self, key: str) -> int:
+        if key not in self.list_store:
+            return 0
+        return len(self.list_store[key])
