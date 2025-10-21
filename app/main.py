@@ -20,7 +20,7 @@ def handle_client_data(client_socket):
         if data.startswith(b"*2\r\n$4\r\nECHO\r\n"):
             parts = data.split(b"\r\n")
             msg = parts[-2]
-            client_socket.sendall(b"$"+str(len(msg)).encode()+b"\r\n"+str(msg).encode()+b"\r\n")
+            client_socket.sendall(b"$"+str(len(msg)).encode()+b"\r\n"+msg+b"\r\n")
     except ConnectionError:
         selector.unregister(client_socket)
         client_socket.close()
