@@ -22,12 +22,12 @@ class Redis:
     def echo(self, msg: str):
         return msg
     
-    def set(self, key: str, value: str, opt, expire_time):
-        if opt.upper() == "EX":
-            expire_time = int(expire_time) * 1000  # convert to milliseconds
-        elif opt.upper() == "PX":
-            expire_time = int(expire_time)
-        if expire_time:
+    def set(self, key: str, value: str, opt=None, expire_time=None):
+        if opt and expire_time:
+            if opt.upper() == "EX":
+                expire_time = int(expire_time) * 1000  # convert to milliseconds
+            elif opt.upper() == "PX":
+                expire_time = int(expire_time)
             expire_at = datetime.now() + timedelta(milliseconds=expire_time)
         else:
             expire_at = datetime.fromtimestamp(0, tz=timezone.utc)  # no expiration
