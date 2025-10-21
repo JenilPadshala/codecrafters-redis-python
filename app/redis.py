@@ -15,7 +15,7 @@ class Redis:
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
         pass
 
-    def handle_command(self, command: str, *args: str):
+    def handle_command(self, command: str, *args: Any):
         command = command.upper()
         if command == "PING":
             return self.ping()
@@ -33,7 +33,7 @@ class Redis:
             return self.lpush(*args)
         elif command == "LLEN" and len(args) == 1:
             return self.llen(*args)
-        elif command == "LPOP" and len(args) == 1:
+        elif command == "LPOP" and len(args) >= 1:
             return self.lpop(*args)
     
     # ---- Command Implementations ----
@@ -113,8 +113,21 @@ class Redis:
             return 0
         return len(self.list_store[key])
     
-    def lpop(self, key: str) -> Optional[str]:
-        """Pop and return the first element of the list stored at key."""
+    def lpop(self, key: str, n: Optional[int]) -> Optional[deque|list]:
+        """Remove and return the first 'n' elements of the list stored at key."""
+        # if n is None, pop one element
+        if not n:
+            n = 1
+        # if key does not exist or list is empty, return None
         if key not in self.list_store or len(self.list_store[key]) == 0:
             return None
-        return self.list_store[key].popleft()
+        # if n is greater than or equal to the length of the list, return the whole list and empty it
+        if n >= len(self.list_store[key]):
+            lst = self.list_store[key]
+            self.list_store[key] = deque()
+            return lst
+        # else, pop 'n' elements from the front and return them
+        popped_elements = deque()
+        for _ in range(n):
+            popped_elements.append(self.list_store[key].popleft())
+        return popped_elements
