@@ -37,7 +37,7 @@ class Redis:
     def get(self, key: str):
         if key in self.kv_store:
             record = self.kv_store[key]
-            if record["expire_at"] > datetime.now() or record["expire_at"].timestamp() == 0;
+            if record["expire_at"] > datetime.now() or record["expire_at"].timestamp() == 0:
                 return record["value"]
             else:
                 del self.kv_store[key]
