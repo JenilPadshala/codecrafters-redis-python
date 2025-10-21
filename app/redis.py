@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 class Redis:
     def __init__(self) -> None:
         self.kv_store = {}
+        self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
         pass
 
     def handle_command(self, command: str, *args: str):
@@ -30,7 +31,7 @@ class Redis:
                 expire_time = int(expire_time)
             expire_at = datetime.now(timezone.utc) + timedelta(milliseconds=expire_time)
         else:
-            expire_at = datetime.fromtimestamp(0, tz=timezone.utc)  # no expiration
+            expire_at = self.epoch_zero  # no expiration
         self.kv_store[key] = {"value": value, "expire_at": expire_at}
         print(self.kv_store)
         return "OK"
@@ -40,8 +41,7 @@ class Redis:
             record = self.kv_store[key]
             expire_at = record["expire_at"]
             now = datetime.now(tz=timezone.utc)
-            epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
-            if expire_at == epoch_zero or (expire_at is not None and expire_at > now):
+            if expire_at == self.epoch_zero or (expire_at is not None and expire_at > now):
                 return record["value"]
             else:
                 del self.kv_store[key]
