@@ -1,26 +1,38 @@
 import socket
 import selectors
-
+from .parsing import parse_request, build_response
+from .redis import Redis
 BUF_SIZE = 1024
 
 selector = selectors.DefaultSelector()
+redis_obj = Redis()
 
 def handle_client_data(client_socket):
     """Callback for when a client socket has data to read."""
     try:
         data = client_socket.recv(BUF_SIZE)
+        
         if not data:
             print("Client disconnected")
             selector.unregister(client_socket)
             client_socket.close()
             return
-        if data == b"*1\r\n$4\r\nPING\r\n":
-            client_socket.sendall(b"+PONG\r\n")
         
-        if data.startswith(b"*2\r\n$4\r\nECHO\r\n"):
-            parts = data.split(b"\r\n")
-            msg = parts[-2]
-            client_socket.sendall(b"$"+str(len(msg)).encode()+b"\r\n"+msg+b"\r\n")
+        data_parsed = parse_request(data)
+        if data_parsed:
+            response = redis_obj.handle_command(data_parsed[0], *data_parsed[1:])
+            client_socket.sendall(build_response(response))
+        else:
+            client_socket.sendall(build_response(None))
+
+        
+        # if data == b"*1\r\n$4\r\nPING\r\n":
+        #     client_socket.sendall(b"+PONG\r\n")
+        
+        # if data.startswith(b"*2\r\n$4\r\nECHO\r\n"):
+        #     parts = data.split(b"\r\n")
+        #     msg = parts[-2]
+        #     client_socket.sendall(b"$"+str(len(msg)).encode()+b"\r\n"+msg+b"\r\n")
     except ConnectionError:
         selector.unregister(client_socket)
         client_socket.close()
