@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import TypedDict, Any, Optional
+from typing import TypedDict, Any, Optional, Union
 from collections import deque
 from itertools import islice
 class Record(TypedDict):
@@ -113,21 +113,27 @@ class Redis:
             return 0
         return len(self.list_store[key])
     
-    def lpop(self, key: str, n: Optional[int]) -> Optional[deque|list]:
+    def lpop(self, key: str, n: Optional[Union[int, str]]) -> Optional[Union[deque, list]]:
         """Remove and return the first 'n' elements of the list stored at key."""
         # if n is None, pop one element
         if not n:
-            n = 1
+            count = 1
+        else:
+            try:
+                count = int(n)
+            except ValueError:
+                print("LPOP: n is not an integer")
+                return None
         # if key does not exist or list is empty, return None
         if key not in self.list_store or len(self.list_store[key]) == 0:
             return None
         # if n is greater than or equal to the length of the list, return the whole list and empty it
-        if n >= len(self.list_store[key]):
+        if count >= len(self.list_store[key]):
             lst = self.list_store[key]
             self.list_store[key] = deque()
             return lst
         # else, pop 'n' elements from the front and return them
         popped_elements = deque()
-        for _ in range(n):
+        for _ in range(count):
             popped_elements.append(self.list_store[key].popleft())
         return popped_elements
