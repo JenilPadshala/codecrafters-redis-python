@@ -1,7 +1,16 @@
 from datetime import datetime, timedelta, timezone
+from typing import TypedDict, Any
+
+class Record(TypedDict):
+    value: str
+    expire_at: datetime
+
+KVStore = dict[str, Record]
+ListStore = dict[str, list[Any]]
 class Redis:
     def __init__(self) -> None:
-        self.kv_store = {}
+        self.kv_store: KVStore = {}
+        self.list_store: ListStore = {}
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
         pass
 
@@ -15,6 +24,8 @@ class Redis:
             return self.set(*args)
         elif command == "GET" and len(args) == 1:
             return self.get(args[0])
+        elif command == "RPUSH" and len(args) >= 2:
+            return self.rpush(*args)
     
     # ---- Command Implementations ----
     def ping(self):
@@ -48,3 +59,9 @@ class Redis:
                 return None
         else:
             return None
+    
+    def rpush(self, key: str, *values: str):
+        if key not in self.list_store:
+            self.list_store[key] = []
+        self.list_store[key].extend(values)
+        return len(self.list_store[key])
