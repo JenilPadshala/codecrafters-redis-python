@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import TypedDict, Any, Optional
-
+from collections import deque
+from itertools import islice
 class Record(TypedDict):
     value: str
     expire_at: datetime
 
 KVStore = dict[str, Record]
-ListStore = dict[str, list[Any]]
+ListStore = dict[str, deque[Any]]
 class Redis:
     def __init__(self) -> None:
         self.kv_store: KVStore = {}
@@ -64,13 +65,13 @@ class Redis:
     
     def rpush(self, key: str, *values: str) -> int:
         if key not in self.list_store:
-            self.list_store[key] = []
+            self.list_store[key] = deque()
         self.list_store[key].extend(values)
         return len(self.list_store[key])
     
-    def lrange(self, key: str, start: str, end: str) -> list[str]:
+    def lrange(self, key: str, start: str, end: str) -> deque[str]:
         if key not in self.list_store:
-            return []
+            return deque()
         lst = self.list_store[key]
         start_idx = int(start)
         end_idx = int(end)
@@ -82,8 +83,8 @@ class Redis:
             end_idx += len(lst)
         # Adjust indices to be within bounds        
         if start_idx >= len(lst) or (start_idx > end_idx):
-            return []
+            return deque()
         if end_idx >= len(lst):
             end_idx = len(lst) - 1
-        return lst[start_idx:end_idx + 1]
+        return deque(islice(lst, start_idx, end_idx + 1))
         
