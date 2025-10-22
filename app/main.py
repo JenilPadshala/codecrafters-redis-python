@@ -1,74 +1,56 @@
-import socket
-import selectors
-from .parsing import parse_request, build_response
+import asyncio
 from .redis import Redis
-BUF_SIZE = 1024
+from .parsing import parse_request, build_response
 
-selector = selectors.DefaultSelector()
+BUF_SIZE = 1024
 redis_obj = Redis()
 
-def handle_client_data(client_socket):
-    """Callback for when a client socket has data to read."""
-    try:
-        data = client_socket.recv(BUF_SIZE)
-        
-        if not data:
-            print("Client disconnected")
-            selector.unregister(client_socket)
-            client_socket.close()
-            return
-        
-        data_parsed = parse_request(data)
-        if data_parsed:
-            response = redis_obj.handle_command(data_parsed[0], *data_parsed[1:])
-            client_socket.sendall(build_response(response))
-        else:
-            client_socket.sendall(build_response(None))
-
-        
-        # if data == b"*1\r\n$4\r\nPING\r\n":
-        #     client_socket.sendall(b"+PONG\r\n")
-        
-        # if data.startswith(b"*2\r\n$4\r\nECHO\r\n"):
-        #     parts = data.split(b"\r\n")
-        #     msg = parts[-2]
-        #     client_socket.sendall(b"$"+str(len(msg)).encode()+b"\r\n"+msg+b"\r\n")
-    except ConnectionError:
-        selector.unregister(client_socket)
-        client_socket.close()
-
-
-def accept_connection(server_socket):
-    """Callback for when the server socket has a new connection."""
-    client_socket, client_addr = server_socket.accept()
+async def handle_client(reader, writer):
+    """
+    This function is called for each new client connection.
+    'reader' and 'writer' are asyncio Stream objects.
+    """
+    client_addr = writer.get_extra_info('peername')
     print(f"Accepted connection from {client_addr}")
-    client_socket.setblocking(False)
-    selector.register(client_socket, selectors.EVENT_READ, data=handle_client_data)    
 
+    while True:
+        try:
+            data = await reader.read(BUF_SIZE)
+            if not data:
+                print(f"Client {client_addr} disconnected")
+                break
 
-def main():
-    print("Logs from your program will appear here.")
+            data_parsed = parse_request(data)
 
-    server_socket = socket.create_server(('localhost', 6379), reuse_port=True)
-    server_socket.setblocking(False)
+            if data_parsed:
+                response = await redis_obj.handle_command(data_parsed[0], *data_parsed[1:])
+                writer.write(build_response(response))
+            else:
+                writer.write(build_response(None))
+            await writer.drain()
+        except ConnectionError:
+            print(f"Client {client_addr} connection reset")
+            break
+        except Exception as e:
+            print(f"An error occurred with {client_addr}: {e}")
+            break
+    
+    print(f"Closing connection to {client_addr}")
+    writer.close()
+    await writer.wait_closed()
 
-    selector.register(server_socket, selectors.EVENT_READ, data=accept_connection)
-    print("Server is listening on localhost:6379")
+async def main():
+    
+    server = await asyncio.start_server(handle_client, 'localhost', 6379)
+    addr = server.sockets[0].getsockname()
+    print(f'Server is listening on {addr}')
+    async with server:
+        await server.serve_forever()
 
-    try:
-        # The EVENT LOOP
-        while True:
-            events = selector.select() # Blocking call, waits for events
-
-            # Dispatch: loop over all ready sockets
-            for key, mask in events:
-                callback = key.data
-                callback(key.fileobj)
-    except KeyboardInterrupt:
-        print("Server is shutting down.")
-    finally:
-        selector.close()
-        server_socket.close()
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nServer is shutting down.")
+

@@ -3,12 +3,16 @@ from typing import TypedDict, Any, Optional, Union
 from collections import deque
 from itertools import islice
 import time
+import asyncio
+
 class Record(TypedDict):
     value: str
     expire_at: datetime
 
 KVStore = dict[str, Record]
 ListStore = dict[str, deque[Any]]
+
+
 class Redis:
     def __init__(self) -> None:
         self.kv_store: KVStore = {}
@@ -16,7 +20,7 @@ class Redis:
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
         pass
 
-    def handle_command(self, command: str, *args: Any):
+    async def handle_command(self, command: str, *args: Any):
         command = command.upper()
         print(f"Handling command: {command} with args: {args}")
         if command == "PING":
@@ -38,7 +42,7 @@ class Redis:
         elif command == "LPOP" and len(args) >= 1:
             return self.lpop(*args)
         elif command == "BLPOP" and len(args) >= 2:
-            return self.blpop(*args)
+            return await self.blpop(*args)
     
     # ---- Command Implementations ----
     def ping(self) -> str:
@@ -147,7 +151,7 @@ class Redis:
             popped_elements.append(self.list_store[key].popleft())
         return popped_elements
     
-    def blpop(self, *args):
+    async def blpop(self, *args):
             """
             Blocking LPOP. Blocks until an element is available in one of the lists,
             or until the timeout is reached.
@@ -183,5 +187,5 @@ class Redis:
 
                 # 3. Wait for a short duration before checking again
                 # Use time.sleep() in a synchronous function, not asyncio
-                time.sleep(0.01) # 10ms polling interval
+                await asyncio.sleep(0.01)
             
