@@ -244,7 +244,8 @@ class Redis:
                     continue
                 if entry_id[0] == end_id[0] and entry_id[1] > end_id[1]:
                     continue
-                result.append(entry)
+                content = [entry["id"], [item for pair in entry["data"].items() for item in pair]]
+                result.append(content)
         print(result)
         return result
 
