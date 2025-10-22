@@ -1,4 +1,5 @@
 from collections import deque
+from .custom_data_types import NullArray
 
 def parse_request(data: bytes):
     """Parses a simple RESP request and returns the command and its arguments."""
@@ -63,6 +64,8 @@ def build_response(response):
         return b":" + str(response).encode() + b"\r\n"
     elif isinstance(response, bytes):
         return b"$" + str(len(response)).encode() + b"\r\n" + response + b"\r\n"
+    elif isinstance(response, NullArray):
+        return b"*-1\r\n"
     elif isinstance(response, deque|list):
         resp_parts = [b"*" + str(len(response)).encode() + b"\r\n"]
         for item in response:

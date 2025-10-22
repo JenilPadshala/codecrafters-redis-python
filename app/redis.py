@@ -1,13 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from typing import TypedDict, Any, Optional, Union
+from typing import Any, Optional, Union
 from collections import deque
 from itertools import islice
-import time
 import asyncio
+from .custom_data_types import Record, NullArray
 
-class Record(TypedDict):
-    value: str
-    expire_at: datetime
 
 KVStore = dict[str, Record]
 ListStore = dict[str, deque[Any]]
@@ -158,7 +155,7 @@ class Redis:
             """
             if len(args) < 2:
                 # Not enough arguments (must have at least one key and a timeout)
-                return [None] 
+                return NullArray()
 
             # The last argument is the timeout, all preceding are keys
             keys = args[:-1]
@@ -169,7 +166,7 @@ class Redis:
                 timeout_sec = float(timeout_str)
             except ValueError:
                 print("BLPOP: timeout is not a number")
-                return [None] 
+                return NullArray()
 
             timeout_limit = datetime.now(timezone.utc) + timedelta(seconds=timeout_sec)
 
@@ -181,6 +178,6 @@ class Redis:
                         return [key, value] 
 
                 if timeout_sec != 0 and datetime.now(timezone.utc) >= timeout_limit:
-                    return [None] 
+                    return NullArray()
                 await asyncio.sleep(0.01)
             
