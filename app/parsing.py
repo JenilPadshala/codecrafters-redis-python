@@ -72,7 +72,7 @@ def build_response(response):
             resp_parts.append(build_response(item))
         return b"".join(resp_parts)
     elif isinstance(response, ErrorResponse):
-        return b"-ERR" + response.message.encode() + b"\r\n"
+        return b"-ERR " + response.message.encode() + b"\r\n"
     elif response is None:
         return b"$-1\r\n"
     else:
