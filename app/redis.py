@@ -232,7 +232,7 @@ class Redis:
             milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
             return (milliseconds, sequence)
         start_id = (0, 0) if start == '-' else parse_id(start)
-        end_id = parse_id(end)
+        end_id = (float('inf'), float('inf')) if end == '+' else parse_id(end)
 
         stream = self.stream_store[key]
         result = deque()
