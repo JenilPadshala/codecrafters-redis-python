@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TypedDict, Any, Optional, Union
 from collections import deque
 from itertools import islice
+import time
 class Record(TypedDict):
     value: str
     expire_at: datetime
@@ -35,6 +36,8 @@ class Redis:
             return self.llen(*args)
         elif command == "LPOP" and len(args) >= 1:
             return self.lpop(*args)
+        elif command == "BLPOP" and len(args) >= 2:
+            return self.blpop(*args)
     
     # ---- Command Implementations ----
     def ping(self) -> str:
@@ -141,3 +144,22 @@ class Redis:
         for _ in range(count):
             popped_elements.append(self.list_store[key].popleft())
         return popped_elements
+    
+    def blpop(self, key: str, timeout: str):
+        """Blocking LPOP"""
+        try:
+            timeout_sec = int(timeout)
+        except ValueError:
+            print("BLPOP: timeout is not an integer")
+            return None
+        timeout_limit = datetime.now(timezone.utc) + timedelta(seconds=timeout_sec)
+        while True:
+            if key in self.list_store and len(self.list_store[key])>0:
+                return self.lpop(key)
+            if timeout_sec > 0 and datetime.now(timezone.utc) >= timeout_limit:
+                return None
+            
+            # Sleep for a short duration to avoid busy waiting
+            time.sleep(0.1)
+
+        
