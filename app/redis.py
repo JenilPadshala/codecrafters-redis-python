@@ -193,6 +193,8 @@ class Redis:
             return "string"
         elif key in self.list_store:
             return "list"
+        elif key in self.stream:
+            return "stream"
         else:
             return "none"
     
