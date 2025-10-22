@@ -3,6 +3,7 @@ from typing import TypedDict, Any, Optional, Union
 from collections import deque
 from itertools import islice
 import time
+import asyncio
 class Record(TypedDict):
     value: str
     expire_at: datetime
@@ -163,5 +164,5 @@ class Redis:
                 return [None]
 
             # Sleep for a short duration to avoid busy waiting
-            time.sleep(0.01)
+            asyncio.run(asyncio.sleep(0.1))
         
