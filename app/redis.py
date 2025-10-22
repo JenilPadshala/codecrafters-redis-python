@@ -32,6 +32,7 @@ class Redis:
             "TYPE": (self.type, 1),
             "XADD": (self.xadd, 3),
             "XRANGE": (self.xrange, 3),
+            "XREAD": (self.xread, 2),
         }
 
     async def handle_command(self, command: str, *args: Any):
@@ -227,18 +228,14 @@ class Redis:
             return NullArray()
 
         # parse start and end IDs
-        def parse_id(id_str: str) -> tuple[int, int]:
-            parts = id_str.split('-')
-            milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
-            return (milliseconds, sequence)
-        start_id = (0, 0) if start == '-' else parse_id(start)
-        end_id = (float('inf'), float('inf')) if end == '+' else parse_id(end)
+        start_id = (0, 0) if start == '-' else self._parse_id(start)
+        end_id = (float('inf'), float('inf')) if end == '+' else self._parse_id(end)
 
         stream = self.stream_store[key]
         result = deque()
         # Iterate over stream and collect entries within range
         for entry in stream:
-            entry_id = parse_id(entry["id"])
+            entry_id = self._parse_id(entry["id"])
             if entry_id[0] >= start_id[0] and entry_id[0] <= end_id[0]:
                 if entry_id[0] == start_id[0] and entry_id[1] < start_id[1]:
                     continue
@@ -246,7 +243,23 @@ class Redis:
                     continue
                 content = [entry["id"], [item for pair in entry["data"].items() for item in pair]]
                 result.append(content)
-        print(result)
+        return result
+    
+    def xread(self, key: str, id: str) -> Union[deque, NullArray]:
+        """Read stream entries with ID greater than the given ID."""
+        if key not in self.stream_store:
+            return NullArray()
+        
+        #parse the given ID
+        given_id = self._parse_id(id)
+        stream = self.stream_store[key]
+        result = deque()
+
+        for entry in stream:
+            entry_id = self._parse_id(entry["id"])
+            if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
+                content = [entry["id"], [item for pair in entry["data"].items() for item in pair]]
+                result.append(content)
         return result
 
     
@@ -303,3 +316,9 @@ class Redis:
                 return ErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item")
         
         return f"{milliseconds}-{sequence}"
+    
+    def _parse_id(self, id_str: str) -> tuple[int, int]:
+        """Helper function to parse a stream ID string into (milliseconds, sequence)."""
+        parts = id_str.split('-')
+        milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+        return (milliseconds, sequence)
