@@ -221,7 +221,7 @@ class Redis:
         self.stream_store[key].append(StreamRecord(id=final_id, data=data))
         return final_id.encode()
     
-    def xrange(self, key: str, start: str, end: str):
+    def xrange(self, key: str, start: str, end: str) -> Union[deque, NullArray]:
         """Return the stream entries in the specified ID range [start, end]."""
         if key not in self.stream_store:
             return NullArray()
@@ -245,6 +245,7 @@ class Redis:
                 if entry_id[0] == end_id[0] and entry_id[1] > end_id[1]:
                     continue
                 result.append(entry)
+        print(result)
         return result
 
     
