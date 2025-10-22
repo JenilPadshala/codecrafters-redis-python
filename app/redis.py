@@ -18,6 +18,7 @@ class Redis:
 
     def handle_command(self, command: str, *args: Any):
         command = command.upper()
+        print(f"Handling command: {command} with args: {args}")
         if command == "PING":
             return self.ping()
         elif command == "ECHO" and args:
