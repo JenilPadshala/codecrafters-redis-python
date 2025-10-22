@@ -81,6 +81,7 @@ class Redis:
         if key not in self.list_store:
             self.list_store[key] = deque()
         self.list_store[key].extend(values)
+        print(self.list_store)
         return len(self.list_store[key])
     
     def lpush(self, key: str, *values: str) -> int:
