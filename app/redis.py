@@ -32,7 +32,7 @@ class Redis:
             "TYPE": (self.type, 1),
             "XADD": (self.xadd, 3),
             "XRANGE": (self.xrange, 3),
-            "XREAD": (self.xread, 2),
+            "XREAD": (self.xread, 3),
         }
 
     async def handle_command(self, command: str, *args: Any):
@@ -245,7 +245,7 @@ class Redis:
                 result.append(content)
         return result
     
-    def xread(self, key: str, id: str) -> Union[deque, NullArray]:
+    def xread(self, store_type: str, key: str, id: str) -> Union[deque, NullArray]:
         """Read stream entries with ID greater than the given ID."""
         if key not in self.stream_store:
             return NullArray()
