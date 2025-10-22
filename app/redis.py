@@ -253,13 +253,16 @@ class Redis:
         #parse the given ID
         given_id = self._parse_id(id)
         stream = self.stream_store[key]
+        print("Given ID:", given_id)
         result = deque()
 
         for entry in stream:
             entry_id = self._parse_id(entry["id"])
+            print("Entry ID:", entry_id)
             if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
                 content = [entry["id"], [item for pair in entry["data"].items() for item in pair]]
                 result.append(content)
+        print("XREAD result:", result)
         return result
 
     
