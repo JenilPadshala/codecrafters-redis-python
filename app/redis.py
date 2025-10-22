@@ -31,6 +31,7 @@ class Redis:
             "BLPOP": (self.blpop, 2),
             "TYPE": (self.type, 1),
             "XADD": (self.xadd, 3),
+            "XRANGE": (self.xrange, 3),
         }
 
     async def handle_command(self, command: str, *args: Any):
@@ -219,6 +220,33 @@ class Redis:
 
         self.stream_store[key].append(StreamRecord(id=final_id, data=data))
         return final_id.encode()
+    
+    def xrange(self, key: str, start: str, end: str):
+        """Return the stream entries in the specified ID range [start, end]."""
+        if key not in self.stream_store:
+            return NullArray()
+
+        # parse start and end IDs
+        def parse_id(id_str: str) -> tuple[int, int]:
+            parts = id_str.split('-')
+            milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+            return (milliseconds, sequence)
+        start_id = parse_id(start)
+        end_id = parse_id(end)
+
+        stream = self.stream_store[key]
+        result = deque()
+        # Iterate over stream and collect entries within range
+        for entry in stream:
+            entry_id = parse_id(entry["id"])
+            if entry_id[0] >= start_id[0] and entry_id[0] <= end_id[0]:
+                if entry_id[0] == start_id[0] and entry_id[1] < start_id[1]:
+                    continue
+                if entry_id[0] == end_id[0] and entry_id[1] > end_id[1]:
+                    continue
+                result.append(entry)
+        return result
+
     
     # ---- Helper Functions ----
 
