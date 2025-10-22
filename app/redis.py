@@ -158,7 +158,7 @@ class Redis:
             """
             if len(args) < 2:
                 # Not enough arguments (must have at least one key and a timeout)
-                return [None] # Or raise an error
+                return [None] 
 
             # The last argument is the timeout, all preceding are keys
             keys = args[:-1]
@@ -169,23 +169,18 @@ class Redis:
                 timeout_sec = float(timeout_str)
             except ValueError:
                 print("BLPOP: timeout is not a number")
-                return [None] # (nil) response for error
+                return [None] 
 
             timeout_limit = datetime.now(timezone.utc) + timedelta(seconds=timeout_sec)
 
             while True:
-                # 1. Check all keys for an available item
+                #Check all keys for an available item
                 for key in keys:
                     if key in self.list_store and len(self.list_store[key]) > 0:
-                        # Found an item. Pop it and return [key, value]
                         value = self.list_store[key].popleft()
-                        return [key, value] # Standard BLPOP return format
+                        return [key, value] 
 
-                # 2. If no item was found, check for timeout
                 if timeout_sec != 0 and datetime.now(timezone.utc) >= timeout_limit:
-                    return [None] # (nil) response for timeout
-
-                # 3. Wait for a short duration before checking again
-                # Use time.sleep() in a synchronous function, not asyncio
+                    return [None] 
                 await asyncio.sleep(0.01)
             
