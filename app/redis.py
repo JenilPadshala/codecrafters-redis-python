@@ -160,8 +160,5 @@ class Redis:
                 return self.lpop(key)
             if timeout_sec > 0 and datetime.now(timezone.utc) >= timeout_limit:
                 return None
-            
-            # Sleep for a short duration to avoid busy waiting
-            time.sleep(0.1)
 
         
