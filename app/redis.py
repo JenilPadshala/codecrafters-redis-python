@@ -203,47 +203,73 @@ class Redis:
     
     def xadd(self, key: str, id: str, *field_value_pairs: str) -> Union[bytes, ErrorResponse]:
         """Append only stream entry to the stream at key."""
-        if len(field_value_pairs) % 2 != 0:
-            print("XADD: field-value pairs are not even")
-            return b''
-        milliseconds, sequence = 0, 0
-        # validating ID / auto-generating ID        
-        if id == '*':
-            pass
-        else:
-            prev_milliseconds, prev_sequence = 0, 0
-            prev_entry = self.stream_store[key][-1] if key in self.stream_store and len(self.stream_store[key]) > 0 else None
-            if prev_entry:
-                prev_milliseconds, prev_sequence = map(int, prev_entry["id"].split('-'))
-            
-            milliseconds, sequence = id.split('-')
-            milliseconds = int(milliseconds)
-            #check if sequence needs to be auto-generated
-            if sequence == '*':
-                if milliseconds < prev_milliseconds:
-                    return ErrorResponse("The ID specified in XADD is smaller than the target stream top item")
-                elif milliseconds == prev_milliseconds:
-                    sequence = prev_sequence + 1
-                else:
-                    sequence = 1 if milliseconds == 0 else 0
-            else:
-                sequence = int(sequence)
-                # Validate the provided ID
-                if milliseconds == 0 and sequence == 0:
-                    return ErrorResponse("The ID specified in XADD must be greater than 0-0")
+        # Parse/validate ID
+        final_id = self._parse_stream_id(id, key)
+        if isinstance(final_id, ErrorResponse):
+            return final_id
 
-                if milliseconds < prev_milliseconds or (milliseconds == prev_milliseconds and sequence <= prev_sequence):
-                    return ErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item")
-            id = f"{milliseconds}-{sequence}"
-        data = {}
-        for i in range(0, len(field_value_pairs), 2):
-            field = field_value_pairs[i]
-            value = field_value_pairs[i + 1]
-            data[field] = value
+        # Parse field-value pairs into a dictionary
+        data = self._parse_stream_field_value_pairs(field_value_pairs)
+        if isinstance(data, ErrorResponse):
+            return data
         
         # If the stream does not exist, create it
-        if key not in self.stream_store.keys():
+        if key not in self.stream_store:
             self.stream_store[key] = deque()
-        stream_record: StreamRecord = {"id": id, "data": data}
-        self.stream_store[key].append(stream_record)
-        return id.encode()
+
+        self.stream_store[key].append(StreamRecord(id=final_id, data=data))
+        return final_id.encode()
+    
+    # ---- Helper Functions ----
+
+    def _parse_stream_field_value_pairs(self, pairs: tuple):
+        """Helper function to parse field-value pairs for XADD command."""
+        if len(pairs) %2 != 0:
+            return ErrorResponse("Field-value pairs must be even in number")
+        
+        data = {}
+        for i in range(0, len(pairs), 2):
+            field = pairs[i]
+            value = pairs[i + 1]
+            data[field] = value
+        return data
+    
+    def _parse_stream_id(self, id: str, key: str) -> Union[str, ErrorResponse]:
+        """Helper function to parse/validate/auto-generate stream ID for XADD command."""
+        # get previous milliseconds and sequence
+        prev_milliseconds, prev_sequence = 0, 0
+        prev_entry = self.stream_store[key][-1] if key in self.stream_store and len(self.stream_store[key]) > 0 else None
+        if prev_entry:
+            prev_milliseconds, prev_sequence = map(int, prev_entry["id"].split('-'))
+        # Auto-generate ID if needed
+        if id == '*':
+            milliseconds = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+            if milliseconds > prev_milliseconds:
+                sequence = 0
+            else:
+                sequence = prev_sequence + 1
+            return f"{milliseconds}-{sequence}" 
+            
+        parts = id.split('-')
+        if len(parts) != 2:
+            return ErrorResponse("Invalid stream ID format")
+        milliseconds, sequence = parts
+        milliseconds = int(milliseconds)
+        
+        
+        # Validate milliseconds and sequence
+        if sequence == '*':
+            if milliseconds < prev_milliseconds:
+                return ErrorResponse("The ID specified in XADD is smaller than the target stream top item")
+            elif milliseconds == prev_milliseconds:
+                sequence = prev_sequence + 1
+            else:
+                sequence = 1 if milliseconds == 0 else 0
+        else:
+            sequence = int(sequence)
+            if milliseconds == 0 and sequence == 0:
+                return ErrorResponse("The ID specified in XADD must be greater than 0-0")
+            if milliseconds < prev_milliseconds or (milliseconds == prev_milliseconds and sequence <= prev_sequence):
+                return ErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item")
+        
+        return f"{milliseconds}-{sequence}"
