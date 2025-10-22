@@ -3,17 +3,17 @@ from typing import Any, Optional, Union
 from collections import deque
 from itertools import islice
 import asyncio
-from .custom_data_types import Record, NullArray
+from .custom_data_types import Record, NullArray, StreamRecord
 
 
 KVStore = dict[str, Record]
 ListStore = dict[str, deque[Any]]
 
-
 class Redis:
     def __init__(self) -> None:
         self.kv_store: KVStore = {}
         self.list_store: ListStore = {}
+        self.stream: deque[StreamRecord] = deque()
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
         self.commands = {
             "PING": (self.ping, 0),
@@ -27,6 +27,7 @@ class Redis:
             "LPOP": (self.lpop, 1),
             "BLPOP": (self.blpop, 2),
             "TYPE": (self.type, 1),
+            "XADD": (self.xadd, 3),
         }
 
     async def handle_command(self, command: str, *args: Any):
@@ -45,29 +46,6 @@ class Redis:
                 return handler(*args)
         except TypeError as e:
             return None
-        
-        # if command == "PING":
-        #     return self.ping()
-        # elif command == "ECHO" and args:
-        #     return self.echo(args[0])
-        # elif command == "SET" and len(args) >= 2:
-        #     return self.set(*args)
-        # elif command == "GET" and len(args) == 1:
-        #     return self.get(args[0])
-        # elif command == "RPUSH" and len(args) >= 2:
-        #     return self.rpush(*args)
-        # elif command == "LRANGE" and len(args) == 3:
-        #     return self.lrange(*args)
-        # elif command == "LPUSH" and len(args) >= 2:
-        #     return self.lpush(*args)
-        # elif command == "LLEN" and len(args) == 1:
-        #     return self.llen(*args)
-        # elif command == "LPOP" and len(args) >= 1:
-        #     return self.lpop(*args)
-        # elif command == "BLPOP" and len(args) >= 2:
-        #     return await self.blpop(*args)
-        # elif command == "TYPE" and len(args) == 1:
-        #     return self.type(*args)
     
     # ---- Command Implementations ----
     def ping(self) -> str:
@@ -217,3 +195,22 @@ class Redis:
             return "list"
         else:
             return "none"
+    
+    def xadd(self, key: str, id: str, *field_value_pairs: str) -> bytes:
+        """Append only stream entry to the stream at key."""
+        if len(field_value_pairs) % 2 != 0:
+            print("XADD: field-value pairs are not even")
+            return b''
+        data = {}
+        for i in range(0, len(field_value_pairs), 2):
+            field = field_value_pairs[i]
+            value = field_value_pairs[i + 1]
+            data[field] = value
+        
+        for stream_record in self.stream:
+            if stream_record["id"] == id:
+                stream_record["data"].update(data)
+                return id.encode()
+        new_record: StreamRecord = {"id": id, "data": data}
+        self.stream.append(new_record)
+        return id.encode()
