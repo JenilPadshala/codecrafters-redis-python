@@ -178,7 +178,7 @@ class Redis:
                         return [key, value] # Standard BLPOP return format
 
                 # 2. If no item was found, check for timeout
-                if datetime.now(timezone.utc) >= timeout_limit:
+                if timeout_sec != 0 and datetime.now(timezone.utc) >= timeout_limit:
                     return [None] # (nil) response for timeout
 
                 # 3. Wait for a short duration before checking again
