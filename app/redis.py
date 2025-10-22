@@ -11,10 +11,13 @@ ListStore = dict[str, deque[Any]]
 
 class Redis:
     def __init__(self) -> None:
+        # In-memory data stores
         self.kv_store: KVStore = {}
         self.list_store: ListStore = {}
         self.stream_store: Dict[str,deque[StreamRecord]] = {}
+
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
+        
         self.commands = {
             "PING": (self.ping, 0),
             "ECHO": (self.echo, 1),
