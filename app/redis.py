@@ -3,7 +3,6 @@ from typing import TypedDict, Any, Optional, Union
 from collections import deque
 from itertools import islice
 import time
-import asyncio
 class Record(TypedDict):
     value: str
     expire_at: datetime
@@ -148,22 +147,41 @@ class Redis:
             popped_elements.append(self.list_store[key].popleft())
         return popped_elements
     
-    def blpop(self, key: str, timeout: str):
-        """Blocking LPOP"""
-        try:
-            timeout_sec = int(timeout)
-        except ValueError:
-            print("BLPOP: timeout is not an integer")
-            return [None]
-        timeout_limit = datetime.now(timezone.utc) + timedelta(seconds=timeout_sec)
-        while True:
-            print("BLPOP: checking list")
-            print(self.list_store)
-            if key in self.list_store and len(self.list_store[key])>0:
-                return self.lpop(key)
-            if timeout_sec > 0 and datetime.now(timezone.utc) >= timeout_limit:
-                return [None]
+    def blpop(self, *args):
+            """
+            Blocking LPOP. Blocks until an element is available in one of the lists,
+            or until the timeout is reached.
+            """
+            if len(args) < 2:
+                # Not enough arguments (must have at least one key and a timeout)
+                return None # Or raise an error
 
-            # Sleep for a short duration to avoid busy waiting
-            asyncio.run(asyncio.sleep(0.1))
-        
+            # The last argument is the timeout, all preceding are keys
+            keys = args[:-1]
+            timeout_str = args[-1]
+
+            try:
+                # Use float for more precise timeout, like real Redis
+                timeout_sec = float(timeout_str)
+            except ValueError:
+                print("BLPOP: timeout is not a number")
+                return None # (nil) response for error
+
+            timeout_limit = datetime.now(timezone.utc) + timedelta(seconds=timeout_sec)
+
+            while True:
+                # 1. Check all keys for an available item
+                for key in keys:
+                    if key in self.list_store and len(self.list_store[key]) > 0:
+                        # Found an item. Pop it and return [key, value]
+                        value = self.list_store[key].popleft()
+                        return [key, value] # Standard BLPOP return format
+
+                # 2. If no item was found, check for timeout
+                if datetime.now(timezone.utc) >= timeout_limit:
+                    return None # (nil) response for timeout
+
+                # 3. Wait for a short duration before checking again
+                # Use time.sleep() in a synchronous function, not asyncio
+                time.sleep(0.01) # 10ms polling interval
+            
