@@ -231,7 +231,7 @@ class Redis:
             parts = id_str.split('-')
             milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
             return (milliseconds, sequence)
-        start_id = parse_id(start)
+        start_id = (0, 0) if start == '-' else parse_id(start)
         end_id = parse_id(end)
 
         stream = self.stream_store[key]
