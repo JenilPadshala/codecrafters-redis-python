@@ -262,7 +262,7 @@ class Redis:
                 entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
         if not entries:
             return NullArray()
-        result = deque([key, entries])
+        result = deque([[key, entries]])
         print("XREAD result:", result)
         return result
 
