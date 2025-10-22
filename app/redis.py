@@ -216,8 +216,8 @@ class Redis:
             if prev_entry:
                 prev_milliseconds, prev_sequence = map(int, prev_entry["id"].split('-'))
             
-            milliseconds, sequence = map(int, id.split('-'))
-
+            milliseconds, sequence = id.split('-')
+            milliseconds = int(milliseconds)
             #check if sequence needs to be auto-generated
             if sequence == '*':
                 if milliseconds < prev_milliseconds:
@@ -227,6 +227,7 @@ class Redis:
                 else:
                     sequence = 1 if milliseconds == 0 else 0
             else:
+                sequence = int(sequence)
                 # Validate the provided ID
                 if milliseconds == 0 and sequence == 0:
                     return ErrorResponse("The ID specified in XADD must be greater than 0-0")
