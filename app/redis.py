@@ -40,6 +40,8 @@ class Redis:
             return self.lpop(*args)
         elif command == "BLPOP" and len(args) >= 2:
             return await self.blpop(*args)
+        elif command == "TYPE" and len(args) == 1:
+            return self.type(*args)
     
     # ---- Command Implementations ----
     def ping(self) -> str:
@@ -180,4 +182,12 @@ class Redis:
                 if timeout_sec != 0 and datetime.now(timezone.utc) >= timeout_limit:
                     return NullArray()
                 await asyncio.sleep(0.01)
-            
+    
+    def type(self, key: str) -> str:
+        """Return the data type of the value stored at key."""
+        if key in self.kv_store:
+            return "string"
+        elif key in self.list_store:
+            return "list"
+        else:
+            return "none"
