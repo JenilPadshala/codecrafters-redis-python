@@ -154,7 +154,7 @@ class Redis:
             """
             if len(args) < 2:
                 # Not enough arguments (must have at least one key and a timeout)
-                return None # Or raise an error
+                return [None] # Or raise an error
 
             # The last argument is the timeout, all preceding are keys
             keys = args[:-1]
@@ -165,7 +165,7 @@ class Redis:
                 timeout_sec = float(timeout_str)
             except ValueError:
                 print("BLPOP: timeout is not a number")
-                return None # (nil) response for error
+                return [None] # (nil) response for error
 
             timeout_limit = datetime.now(timezone.utc) + timedelta(seconds=timeout_sec)
 
@@ -179,7 +179,7 @@ class Redis:
 
                 # 2. If no item was found, check for timeout
                 if datetime.now(timezone.utc) >= timeout_limit:
-                    return None # (nil) response for timeout
+                    return [None] # (nil) response for timeout
 
                 # 3. Wait for a short duration before checking again
                 # Use time.sleep() in a synchronous function, not asyncio
