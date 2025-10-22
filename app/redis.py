@@ -15,33 +15,59 @@ class Redis:
         self.kv_store: KVStore = {}
         self.list_store: ListStore = {}
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
-        pass
+        self.commands = {
+            "PING": (self.ping, 0),
+            "ECHO": (self.echo, 1),
+            "SET": (self.set, 2),
+            "GET": (self.get, 1),
+            "RPUSH": (self.rpush, 2),
+            "LRANGE": (self.lrange, 3),
+            "LPUSH": (self.lpush, 2),
+            "LLEN": (self.llen, 1),
+            "LPOP": (self.lpop, 1),
+            "BLPOP": (self.blpop, 2),
+            "TYPE": (self.type, 1),
+        }
 
     async def handle_command(self, command: str, *args: Any):
         command = command.upper()
         print(f"Handling command: {command} with args: {args}")
-        if command == "PING":
-            return self.ping()
-        elif command == "ECHO" and args:
-            return self.echo(args[0])
-        elif command == "SET" and len(args) >= 2:
-            return self.set(*args)
-        elif command == "GET" and len(args) == 1:
-            return self.get(args[0])
-        elif command == "RPUSH" and len(args) >= 2:
-            return self.rpush(*args)
-        elif command == "LRANGE" and len(args) == 3:
-            return self.lrange(*args)
-        elif command == "LPUSH" and len(args) >= 2:
-            return self.lpush(*args)
-        elif command == "LLEN" and len(args) == 1:
-            return self.llen(*args)
-        elif command == "LPOP" and len(args) >= 1:
-            return self.lpop(*args)
-        elif command == "BLPOP" and len(args) >= 2:
-            return await self.blpop(*args)
-        elif command == "TYPE" and len(args) == 1:
-            return self.type(*args)
+        handler, num_args = self.commands.get(command, (None, None))
+
+        if not handler:
+            return None
+        if len(args) < num_args:
+            return None
+        try:
+            if asyncio.iscoroutinefunction(handler):
+                return await handler(*args)
+            else:
+                return handler(*args)
+        except TypeError as e:
+            return None
+        
+        # if command == "PING":
+        #     return self.ping()
+        # elif command == "ECHO" and args:
+        #     return self.echo(args[0])
+        # elif command == "SET" and len(args) >= 2:
+        #     return self.set(*args)
+        # elif command == "GET" and len(args) == 1:
+        #     return self.get(args[0])
+        # elif command == "RPUSH" and len(args) >= 2:
+        #     return self.rpush(*args)
+        # elif command == "LRANGE" and len(args) == 3:
+        #     return self.lrange(*args)
+        # elif command == "LPUSH" and len(args) >= 2:
+        #     return self.lpush(*args)
+        # elif command == "LLEN" and len(args) == 1:
+        #     return self.llen(*args)
+        # elif command == "LPOP" and len(args) >= 1:
+        #     return self.lpop(*args)
+        # elif command == "BLPOP" and len(args) >= 2:
+        #     return await self.blpop(*args)
+        # elif command == "TYPE" and len(args) == 1:
+        #     return self.type(*args)
     
     # ---- Command Implementations ----
     def ping(self) -> str:
