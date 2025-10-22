@@ -156,6 +156,7 @@ class Redis:
             return None
         timeout_limit = datetime.now(timezone.utc) + timedelta(seconds=timeout_sec)
         while True:
+            print("BLPOP: checking list")
             if key in self.list_store and len(self.list_store[key])>0:
                 return self.lpop(key)
             if timeout_sec > 0 and datetime.now(timezone.utc) >= timeout_limit:
