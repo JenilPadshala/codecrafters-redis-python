@@ -206,20 +206,34 @@ class Redis:
         if len(field_value_pairs) % 2 != 0:
             print("XADD: field-value pairs are not even")
             return b''
-        
-        # validating ID
-        prev_milliseconds, prev_sequence = 0, 0
-        prev_entry = self.stream_store[key][-1] if key in self.stream_store and len(self.stream_store[key]) > 0 else None
-        if prev_entry:
-            prev_milliseconds, prev_sequence = map(int, prev_entry["id"].split('-'))
-        
-        milliseconds, sequence = map(int, id.split('-'))
-        if milliseconds == 0 and sequence == 0:
-            return ErrorResponse("The ID specified in XADD must be greater than 0-0")
+        milliseconds, sequence = 0, 0
+        # validating ID / auto-generating ID        
+        if id == '*':
+            pass
+        else:
+            prev_milliseconds, prev_sequence = 0, 0
+            prev_entry = self.stream_store[key][-1] if key in self.stream_store and len(self.stream_store[key]) > 0 else None
+            if prev_entry:
+                prev_milliseconds, prev_sequence = map(int, prev_entry["id"].split('-'))
+            
+            milliseconds, sequence = map(int, id.split('-'))
 
-        if milliseconds < prev_milliseconds or (milliseconds == prev_milliseconds and sequence <= prev_sequence):
-            return ErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item")
-        
+            #check if sequence needs to be auto-generated
+            if sequence == '*':
+                if milliseconds < prev_milliseconds:
+                    return ErrorResponse("The ID specified in XADD is smaller than the target stream top item")
+                elif milliseconds == prev_milliseconds:
+                    sequence = prev_sequence + 1
+                else:
+                    sequence = 1 if milliseconds == 0 else 0
+            else:
+                # Validate the provided ID
+                if milliseconds == 0 and sequence == 0:
+                    return ErrorResponse("The ID specified in XADD must be greater than 0-0")
+
+                if milliseconds < prev_milliseconds or (milliseconds == prev_milliseconds and sequence <= prev_sequence):
+                    return ErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item")
+            id = f"{milliseconds}-{sequence}"
         data = {}
         for i in range(0, len(field_value_pairs), 2):
             field = field_value_pairs[i]
