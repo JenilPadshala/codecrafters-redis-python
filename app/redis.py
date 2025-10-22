@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Dict
 from collections import deque
 from itertools import islice
 import asyncio
@@ -13,7 +13,7 @@ class Redis:
     def __init__(self) -> None:
         self.kv_store: KVStore = {}
         self.list_store: ListStore = {}
-        self.stream: deque[StreamRecord] = deque()
+        self.stream_store: Dict[str,deque[StreamRecord]] = {}
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
         self.commands = {
             "PING": (self.ping, 0),
@@ -193,7 +193,7 @@ class Redis:
             return "string"
         elif key in self.list_store:
             return "list"
-        elif key in self.stream:
+        elif key in self.stream_store:
             return "stream"
         else:
             return "none"
@@ -209,10 +209,9 @@ class Redis:
             value = field_value_pairs[i + 1]
             data[field] = value
         
-        for stream_record in self.stream:
-            if stream_record["id"] == id:
-                stream_record["data"].update(data)
-                return id.encode()
-        new_record: StreamRecord = {"id": id, "data": data}
-        self.stream.append(new_record)
+        # If the stream does not exist, create it
+        if key not in self.stream_store.keys():
+            self.stream_store[key] = deque()
+        stream_record: StreamRecord = {"id": id, "data": data}
+        self.stream_store[key].append(stream_record)
         return id.encode()
