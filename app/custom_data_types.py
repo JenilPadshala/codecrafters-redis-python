@@ -9,3 +9,7 @@ class StreamRecord(TypedDict):
     data: dict[str, str]
 class NullArray:
     pass
+
+class ErrorResponse():
+    def __init__(self, message: str):
+        self.message = message

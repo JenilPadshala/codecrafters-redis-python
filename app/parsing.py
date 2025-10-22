@@ -1,5 +1,5 @@
 from collections import deque
-from .custom_data_types import NullArray
+from .custom_data_types import NullArray, ErrorResponse
 
 def parse_request(data: bytes):
     """Parses a simple RESP request and returns the command and its arguments."""
@@ -71,6 +71,8 @@ def build_response(response):
         for item in response:
             resp_parts.append(build_response(item))
         return b"".join(resp_parts)
+    elif isinstance(response, ErrorResponse):
+        return b"-ERR" + response.message.encode() + b"\r\n"
     elif response is None:
         return b"$-1\r\n"
     else:

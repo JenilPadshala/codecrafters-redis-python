@@ -3,7 +3,7 @@ from typing import Any, Optional, Union, Dict
 from collections import deque
 from itertools import islice
 import asyncio
-from .custom_data_types import Record, NullArray, StreamRecord
+from .custom_data_types import Record, NullArray, StreamRecord, ErrorResponse
 
 
 KVStore = dict[str, Record]
@@ -201,11 +201,25 @@ class Redis:
         else:
             return "none"
     
-    def xadd(self, key: str, id: str, *field_value_pairs: str) -> bytes:
+    def xadd(self, key: str, id: str, *field_value_pairs: str) -> Union[bytes, ErrorResponse]:
         """Append only stream entry to the stream at key."""
         if len(field_value_pairs) % 2 != 0:
             print("XADD: field-value pairs are not even")
             return b''
+        
+        # validating ID
+        prev_milliseconds, prev_sequence = 0, 0
+        prev_entry = self.stream_store[key][-1] if key in self.stream_store and len(self.stream_store[key]) > 0 else None
+        if prev_entry:
+            prev_milliseconds, prev_sequence = map(int, prev_entry["id"].split('-'))
+        
+        milliseconds, sequence = map(int, id.split('-'))
+        if milliseconds == 0 and sequence == 0:
+            return ErrorResponse("The ID specified in XADD must be greater than 0-0")
+
+        if milliseconds < prev_milliseconds or (milliseconds == prev_milliseconds and sequence <= prev_sequence):
+            return ErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item")
+        
         data = {}
         for i in range(0, len(field_value_pairs), 2):
             field = field_value_pairs[i]
