@@ -245,28 +245,61 @@ class Redis:
                 result.append(content)
         return result
     
-    def xread(self, store_type: str, key: str, id: str) -> Union[deque, NullArray]:
-        """Read stream entries with ID greater than the given ID."""
-        
-        if key not in self.stream_store:
+    def xread(self, stream_opt: str, *args: str) -> Union[deque, NullArray]:
+        """Read stream entries with ID greater than the given IDs for multiple streams."""
+        #identify streams and their IDs
+        n = len(args) // 2
+        keys = args[:n]
+        ids = args[n:]
+
+        results = deque()
+        results.append(deque())
+
+        # process each stream and its corresponding ID
+        for key, id in zip(keys, ids):
+            if key not in self.stream_store:
+                continue
+
+            given_id = self._parse_id(id)
+            stream = self.stream_store[key]
+
+            entries = deque()
+
+            for entry in stream:
+                entry_id = self._parse_id(entry["id"])
+                if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
+                    entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
+
+            if entries:
+                results[0].append([key, entries])
+
+        if not results:
             return NullArray()
         
-        #parse the given ID
-        given_id = self._parse_id(id)
-        stream = self.stream_store[key]
-
-        entries = deque()
-        for entry in stream:
-            entry_id = self._parse_id(entry["id"])
-            if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
-                entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
-
-        if not entries:
-            return NullArray()
+        return results
+            
+    # def xread(self, stream_opt: str, key: str, id: str) -> Union[deque, NullArray]:
+    #     """Read stream entries with ID greater than the given ID."""
         
-        result = deque([[key, entries]])
+    #     if key not in self.stream_store:
+    #         return NullArray()
+        
+    #     #parse the given ID
+    #     given_id = self._parse_id(id)
+    #     stream = self.stream_store[key]
 
-        return result
+    #     entries = deque()
+    #     for entry in stream:
+    #         entry_id = self._parse_id(entry["id"])
+    #         if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
+    #             entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
+
+    #     if not entries:
+    #         return NullArray()
+        
+    #     result = deque([[key, entries]])
+
+    #     return result
 
     
     # ---- Helper Functions ----
