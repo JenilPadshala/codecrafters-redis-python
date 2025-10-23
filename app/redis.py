@@ -253,7 +253,6 @@ class Redis:
         ids = args[n:]
 
         results = deque()
-        results.append(deque())
 
         # process each stream and its corresponding ID
         for key, id in zip(keys, ids):
@@ -271,7 +270,7 @@ class Redis:
                     entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
 
             if entries:
-                results[0].append([key, entries])
+                results.append([key, entries])
 
         if not results:
             return NullArray()
