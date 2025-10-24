@@ -320,7 +320,7 @@ class Redis:
                 if key not in self.stream_store:
                     continue
 
-                given_id = self._parse_id(id)
+                given_id = self._parse_id(id, key)
                 stream = self.stream_store[key]
 
                 entries = deque()
@@ -407,11 +407,19 @@ class Redis:
                 return ErrorResponse("The ID specified in XADD must be greater than 0-0")
             if milliseconds < prev_milliseconds or (milliseconds == prev_milliseconds and sequence <= prev_sequence):
                 return ErrorResponse("The ID specified in XADD is equal or smaller than the target stream top item")
-        
+
         return f"{milliseconds}-{sequence}"
     
-    def _parse_id(self, id_str: str) -> tuple[int, int]:
+    def _parse_id(self, id_str: str, key: Optional[str]) -> tuple[int, int]:
         """Helper function to parse a stream ID string into (milliseconds, sequence)."""
         parts = id_str.split('-')
+
+        if parts[1] == '$':
+            # Get the last entry's ID for the given key
+            if key and key in self.stream_store and len(self.stream_store[key]) > 0:
+                last_entry_id = self.stream_store[key][-1]["id"]
+                parts = last_entry_id.split('-')
+            else:
+                return (0, 0)
         milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
         return (milliseconds, sequence)
