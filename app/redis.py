@@ -312,16 +312,22 @@ class Redis:
         if len(keys) != len(ids):
             return ErrorResponse("Mismatched number of keys and IDs")
         
+        initial_ids = []
+        for key, id_str in zip(keys, ids):
+            parsed_id = self._parse_id(id_str, key)
+            initial_ids.append(parsed_id)
+
         def fetch_entries():
             results = deque()
 
-            for key, id in zip(keys, ids):
+            for key, given_id in zip(keys, initial_ids):
                 if key not in self.stream_store:
                     continue
 
-                given_id = self._parse_id(id, key)
-                stream = self.stream_store[key]
+                if block_timeout is not None and given_id == (float('inf'), float('inf')):
+                    continue
 
+                stream = self.stream_store[key]
                 entries = deque()
 
                 for entry in stream:
@@ -331,7 +337,6 @@ class Redis:
 
                 if entries:
                     results.append([key, entries])
-
             return results
         
         # Non-Blocking case
@@ -409,17 +414,26 @@ class Redis:
 
         return f"{milliseconds}-{sequence}"
     
-    def _parse_id(self, id_str: str, key: Optional[str]) -> tuple[int, int]:
+    def _parse_id(self, id_str: str, key: Optional[str]=None) -> tuple[int|float, int|float]:
         """Helper function to parse a stream ID string into (milliseconds, sequence)."""
-        parts = id_str.split('-')
+        # parts = id_str.split('-')
 
-        if parts[0] == '$':
-            # Get the last entry's ID for the given key
-            if key and key in self.stream_store and len(self.stream_store[key]) > 0:
+        # if parts[0] == '$':
+        #     # Get the last entry's ID for the given key
+        #     if key and key in self.stream_store and len(self.stream_store[key]) > 0:
+        #         last_entry_id = self.stream_store[key][-1]["id"]
+        #         parts = last_entry_id.split('-')
+        #     else:
+        #         return (0, 0)
+        # milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+        # return (milliseconds, sequence)
+        if id_str == "$":
+            if key and key in self.stream_store and self.stream_store[key]:
                 last_entry_id = self.stream_store[key][-1]["id"]
                 parts = last_entry_id.split('-')
-            else:
-                return (0, 0)
-        milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
-        print((milliseconds, sequence))
+                return (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
+            return (float('inf'), float('inf'))  # Sentinel for empty streams or no key
+        parts = id_str.split('-')
+        milliseconds = int(parts[0])
+        sequence = int(parts[1]) if len(parts) > 1 else 0
         return (milliseconds, sequence)
