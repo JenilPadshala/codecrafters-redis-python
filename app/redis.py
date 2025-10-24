@@ -363,6 +363,10 @@ class Redis:
         if not self.multi_mode:
             return ErrorResponse("EXEC without MULTI")
         
+        if self.transaction_queue == deque():
+            self.multi_mode = False
+            return NullArray()
+
         for command, args in self.transaction_queue:
             await self.handle_command(command, *args)
         
