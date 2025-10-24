@@ -4,7 +4,7 @@ from collections import deque
 from itertools import islice
 import asyncio
 from .custom_data_types import Record, NullArray, StreamRecord, ErrorResponse
-
+from .connection import Connection
 
 KVStore = dict[str, Record]
 ListStore = dict[str, deque[Any]]
@@ -18,8 +18,6 @@ class Redis:
         self.transaction_queue: deque = deque()
 
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
-        self.multi_mode = False
-        
         self.commands = {
             "PING": (self.ping, 0),
             "ECHO": (self.echo, 1),
@@ -40,12 +38,12 @@ class Redis:
             "EXEC": (self.exec, 0),
         }
 
-    async def handle_command(self, command: str, *args: Any):
+    async def handle_command(self,client: Connection,  command: str, *args: Any):
         """Main command handler that routes to specific command implementations."""
         command = command.upper()
         print(f"Handling command: {command} with args: {args}")
-        if self.multi_mode and command not in ["MULTI", "EXEC"]:
-            self.transaction_queue.append((command, args))
+        if client.in_multi and command not in ["MULTI", "EXEC"]:
+            client.transaction_queue.append((command, args))
             return "QUEUED"
         handler, num_args = self.commands.get(command, (None, None))
 
@@ -53,6 +51,8 @@ class Redis:
             return None
         if len(args) < num_args:
             return None
+        if command in ["MULTI", "EXEC"]:
+            return handler(client)
         try:
             if asyncio.iscoroutinefunction(handler):
                 return await handler(*args)
@@ -353,28 +353,22 @@ class Redis:
         self.set(key, str(new_value), expire_time = expire_at)
         return new_value
     
-    def multi(self) -> str:
+    def multi(self, client) -> str:
         """Start a transaction block."""
-        self.multi_mode = True
+        client.in_multi = True
         return "OK"
     
-    async def exec(self):
+    async def exec(self, client):
         """Execute all commands issued after MULTI."""
-        if not self.multi_mode:
+        if not client.in_multi:
             return ErrorResponse("EXEC without MULTI")
-        
-        if self.transaction_queue == deque():
-            self.multi_mode = False
+        client.in_multi = False
+        if client.transaction_queue == deque():
             return deque()
-
-        for command, args in self.transaction_queue:
-            await self.handle_command(command, *args)
         
-        self.transaction_queue.clear()
-        self.multi_mode = False
-        return "OK"
-
-    
+        for command, args in client.transaction_queue:
+            await self.handle_command(client, command, *args)
+        
     # ---- Helper Functions ----
 
     def _parse_stream_field_value_pairs(self, pairs: tuple):
