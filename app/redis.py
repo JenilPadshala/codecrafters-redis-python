@@ -245,37 +245,115 @@ class Redis:
                 result.append(content)
         return result
     
-    def xread(self, stream_opt: str, *args: str) -> Union[deque, NullArray]:
-        """Read stream entries with ID greater than the given IDs for multiple streams."""
-        #identify streams and their IDs
-        n = len(args) // 2
-        keys = args[:n]
-        ids = args[n:]
+    # def xread(self, stream_opt: str, *args: str) -> Union[deque, NullArray]:
+    #     """Read stream entries with ID greater than the given IDs for multiple streams."""
+    #     #identify streams and their IDs
+    #     n = len(args) // 2
+    #     keys = args[:n]
+    #     ids = args[n:]
 
-        results = deque()
+    #     results = deque()
 
-        # process each stream and its corresponding ID
-        for key, id in zip(keys, ids):
-            if key not in self.stream_store:
-                continue
+    #     # process each stream and its corresponding ID
+    #     for key, id in zip(keys, ids):
+    #         if key not in self.stream_store:
+    #             continue
 
-            given_id = self._parse_id(id)
-            stream = self.stream_store[key]
+    #         given_id = self._parse_id(id)
+    #         stream = self.stream_store[key]
 
-            entries = deque()
+    #         entries = deque()
 
-            for entry in stream:
-                entry_id = self._parse_id(entry["id"])
-                if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
-                    entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
+    #         for entry in stream:
+    #             entry_id = self._parse_id(entry["id"])
+    #             if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
+    #                 entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
 
-            if entries:
-                results.append([key, entries])
+    #         if entries:
+    #             results.append([key, entries])
 
-        if not results:
-            return NullArray()
+    #     if not results:
+    #         return NullArray()
         
-        return results
+    #     return results
+    async def xread(self, *args: str) -> Union[deque, NullArray, ErrorResponse]:
+        """
+        Read stream entries with ID greater than the given IDs for multiple streams.
+        Supports optional BLOCK command with a timeout in milliseconds.
+        """
+        #parse arguments
+        block_timeout = None
+        stream_idx = 0
+
+        if not args:
+            return ErrorResponse("No arguments provided")
+        
+        # Check for BLOCK command
+        if args[0].upper() == "BLOCK":
+            if len(args) < 3:
+                return ErrorResponse("BLOCK requires timeout and STREAMS")
+            try:
+                block_timeout = int(args[1])
+                if block_timeout < 0:
+                    raise ValueError("BLOCK timeout must be non-negative")
+                stream_idx = 2
+            except ValueError:
+                return ErrorResponse("Invalid BLOCK timeout value")
+        
+        # Check for STREAMS
+        if args[stream_idx].upper() != "STREAMS":
+            return ErrorResponse("Expected STREAMS keyword")
+        
+        # Extract keys and IDs
+        stream_args = args[stream_idx + 1:]
+        n = len(stream_args) // 2
+        keys = stream_args[:n]
+        ids = stream_args[n:]
+
+        if len(keys) != len(ids):
+            return ErrorResponse("Mismatched number of keys and IDs")
+        
+        def fetch_entries():
+            results = deque()
+
+            for key, id in zip(keys, ids):
+                if key not in self.stream_store:
+                    continue
+
+                given_id = self._parse_id(id)
+                stream = self.stream_store[key]
+
+                entries = deque()
+
+                for entry in stream:
+                    entry_id = self._parse_id(entry["id"])
+                    if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
+                        entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
+
+                if entries:
+                    results.append([key, entries])
+
+            return results
+        
+        # Non-Blocking case
+        if block_timeout is None:
+            results = fetch_entries()
+            return results if results else NullArray()
+        
+        # Blocking case
+        start_time = datetime.now(tz=timezone.utc)
+        while True:
+            results = fetch_entries()
+            
+            if results:
+                return results
+            
+            elapsed_ms = (datetime.now(tz=timezone.utc) - start_time).total_seconds() * 1000
+            
+            if elapsed_ms >= block_timeout:
+                return NullArray()
+            
+            await asyncio.sleep(0.01)
 
     
     # ---- Helper Functions ----
