@@ -418,9 +418,9 @@ class Redis:
             # Get the last entry's ID for the given key
             if key and key in self.stream_store and len(self.stream_store[key]) > 0:
                 last_entry_id = self.stream_store[key][-1]["id"]
-                print(last_entry_id)
                 parts = last_entry_id.split('-')
             else:
                 return (0, 0)
         milliseconds, sequence = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+        print((milliseconds, sequence))
         return (milliseconds, sequence)
