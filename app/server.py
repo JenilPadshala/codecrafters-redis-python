@@ -64,7 +64,8 @@ class RedisServer:
             master_host, master_port_str = self.replicaof.split(" ")
             master_port = int(master_port_str)
             #avoid duplicate bind
-            if (master_host, master_port) != (self.host, self.port):
+            already_bound = (master_host, master_port) == (self.host, self.port)
+            if not already_bound:
                 replica_server = await asyncio.start_server(self.handle_client, master_host, master_port)
                 servers.append(replica_server)
         
