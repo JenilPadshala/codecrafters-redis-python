@@ -3,7 +3,7 @@ from .connection import Connection
 from .parsing import parse_request, build_response
 from collections import deque
 import asyncio
-
+import socket
 BUF_SIZE = 1024
 
 class RedisServer:
@@ -56,6 +56,8 @@ class RedisServer:
         """Start the Redis server."""
         # Start the server on primary port
         servers = deque()
+        primary_ip = socket.gethostbyname(self.host)
+
         primary_server = await asyncio.start_server(self.handle_client, self.host, self.port)
         servers.append(primary_server)
 
@@ -63,11 +65,15 @@ class RedisServer:
         if self.replicaof:
             master_host, master_port_str = self.replicaof.split(" ")
             master_port = int(master_port_str)
+            master_ip = socket.gethostbyname(master_host)
+
             #avoid duplicate bind
-            already_bound = (master_host, master_port) == (self.host, self.port)
-            if not already_bound:
-                replica_server = await asyncio.start_server(self.handle_client, master_host, master_port)
-                servers.append(replica_server)
+            if (master_ip, master_port) != (primary_ip, self.port):
+                try:
+                    replica_server = await asyncio.start_server(self.handle_client, master_host, master_port)
+                    servers.append(replica_server)
+                except OSError as e:
+                    print(f"Failed to bind replica server on {master_host}:{master_port}: {e}")
         
         # Print all listening addresses
         addrs = [sock.getsockname() for s in servers for sock in s.sockets]
