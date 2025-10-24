@@ -367,9 +367,11 @@ class Redis:
         client.in_multi = False
         if client.transaction_queue == deque():
             return deque()
-        
+        result = deque()
         for command, args in client.transaction_queue:
-            await self.handle_command(client, command, *args)
+            result.append(await self.handle_command(client, command, *args))
+        client.transaction_queue.clear()
+        return result
         
     # ---- Helper Functions ----
 
