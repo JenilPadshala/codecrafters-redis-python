@@ -340,7 +340,7 @@ class Redis:
         try:
             current_value = int(current_value)
         except ValueError:
-            return ErrorResponse("Value is not an integer")
+            return ErrorResponse("value is not an integer or out of range")
         new_value = current_value + 1
         self.set(key, str(new_value), expire_time = expire_at)
         return new_value
