@@ -34,6 +34,7 @@ class Redis:
             "XRANGE": (self.xrange, 3),
             "XREAD": (self.xread, 3),
             "INCR": (self.incr, 1),
+            "MULTI": (self.multi, 0),
         }
 
     async def handle_command(self, command: str, *args: Any):
@@ -345,6 +346,9 @@ class Redis:
         self.set(key, str(new_value), expire_time = expire_at)
         return new_value
     
+    def multi(self) -> str:
+        """Start a transaction block."""
+        return "OK"
     # ---- Helper Functions ----
 
     def _parse_stream_field_value_pairs(self, pairs: tuple):
