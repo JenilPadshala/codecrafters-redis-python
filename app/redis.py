@@ -10,8 +10,9 @@ KVStore = dict[str, Record]
 ListStore = dict[str, deque[Any]]
 
 class Redis:
-    def __init__(self) -> None:
+    def __init__(self, server) -> None:
         # In-memory data stores
+        self.server = server
         self.kv_store: KVStore = {}
         self.list_store: ListStore = {}
         self.stream_store: Dict[str,deque[StreamRecord]] = {}
@@ -387,7 +388,7 @@ class Redis:
         """Return information and statistics about the server."""
         info_lines = ""
         if "REPLICATION" in args.upper():
-            info_lines += "role:master"
+            info_lines += f"role:{self.server.role}"
         return info_lines.encode()
     # ---- Helper Functions ----
 
