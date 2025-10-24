@@ -350,7 +350,7 @@ class Redis:
             
             elapsed_ms = (datetime.now(tz=timezone.utc) - start_time).total_seconds() * 1000
             
-            if elapsed_ms >= block_timeout:
+            if block_timeout!=0 and (elapsed_ms >= block_timeout):
                 return NullArray()
             
             await asyncio.sleep(0.01)
