@@ -365,7 +365,7 @@ class Redis:
         
         if self.transaction_queue == deque():
             self.multi_mode = False
-            return NullArray()
+            return deque()
 
         for command, args in self.transaction_queue:
             await self.handle_command(command, *args)
