@@ -33,6 +33,7 @@ class Redis:
             "XADD": (self.xadd, 3),
             "XRANGE": (self.xrange, 3),
             "XREAD": (self.xread, 3),
+            "INCR": (self.incr, 1),
         }
 
     async def handle_command(self, command: str, *args: Any):
@@ -244,37 +245,7 @@ class Redis:
                 result.append(content)
         return result
     
-    # def xread(self, stream_opt: str, *args: str) -> Union[deque, NullArray]:
-    #     """Read stream entries with ID greater than the given IDs for multiple streams."""
-    #     #identify streams and their IDs
-    #     n = len(args) // 2
-    #     keys = args[:n]
-    #     ids = args[n:]
 
-    #     results = deque()
-
-    #     # process each stream and its corresponding ID
-    #     for key, id in zip(keys, ids):
-    #         if key not in self.stream_store:
-    #             continue
-
-    #         given_id = self._parse_id(id)
-    #         stream = self.stream_store[key]
-
-    #         entries = deque()
-
-    #         for entry in stream:
-    #             entry_id = self._parse_id(entry["id"])
-    #             if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
-    #                 entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
-
-    #         if entries:
-    #             results.append([key, entries])
-
-    #     if not results:
-    #         return NullArray()
-        
-    #     return results
     async def xread(self, *args: str) -> Union[deque, NullArray, ErrorResponse]:
         """
         Read stream entries with ID greater than the given IDs for multiple streams.
@@ -357,7 +328,22 @@ class Redis:
                 return NullArray()
             
             await asyncio.sleep(0.01)
-
+    
+    def incr(self, key: str) -> Union[int, ErrorResponse]:
+        """Increment the integer value of key by one."""
+        if key not in self.kv_store:
+            self.set(key, "1")
+            return 1
+        record = self.kv_store[key]
+        current_value = record["value"]
+        expire_at = record["expire_at"]
+        try:
+            current_value = int(current_value)
+        except ValueError:
+            return ErrorResponse("Value is not an integer")
+        new_value = current_value + 1
+        self.set(key, str(new_value), expire_time = expire_at)
+        return new_value
     
     # ---- Helper Functions ----
 
