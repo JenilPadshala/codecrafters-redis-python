@@ -51,8 +51,10 @@ class Redis:
             return None
         if len(args) < num_args:
             return None
-        if command in ["MULTI", "EXEC"]:
+        if command is "MULTI":
             return handler(client)
+        if command is "EXEC":
+            return await handler(client)
         try:
             if asyncio.iscoroutinefunction(handler):
                 return await handler(*args)
