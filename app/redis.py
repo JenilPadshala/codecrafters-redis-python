@@ -43,7 +43,7 @@ class Redis:
         """Main command handler that routes to specific command implementations."""
         command = command.upper()
         print(f"Handling command: {command} with args: {args}")
-        if client.in_multi and command not in ["MULTI", "EXEC"]:
+        if client.in_multi and command not in ["MULTI", "EXEC", "DISCARD"]:
             client.transaction_queue.append((command, args))
             return "QUEUED"
         handler, num_args = self.commands.get(command, (None, None))
