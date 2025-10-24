@@ -15,8 +15,10 @@ class Redis:
         self.kv_store: KVStore = {}
         self.list_store: ListStore = {}
         self.stream_store: Dict[str,deque[StreamRecord]] = {}
+        self.transaction_queue: deque = deque()
 
         self.epoch_zero = datetime.fromtimestamp(0, tz=timezone.utc)
+        self.multi_mode = False
         
         self.commands = {
             "PING": (self.ping, 0),
@@ -35,11 +37,16 @@ class Redis:
             "XREAD": (self.xread, 3),
             "INCR": (self.incr, 1),
             "MULTI": (self.multi, 0),
+            "EXEC": (self.exec, 0),
         }
 
     async def handle_command(self, command: str, *args: Any):
+        """Main command handler that routes to specific command implementations."""
         command = command.upper()
         print(f"Handling command: {command} with args: {args}")
+        if self.multi_mode and command not in ["MULTI", "EXEC"]:
+            self.transaction_queue.append((command, args))
+            return "QUEUED"
         handler, num_args = self.commands.get(command, (None, None))
 
         if not handler:
@@ -348,7 +355,22 @@ class Redis:
     
     def multi(self) -> str:
         """Start a transaction block."""
+        self.multi_mode = True
         return "OK"
+    
+    async def exec(self):
+        """Execute all commands issued after MULTI."""
+        if not self.multi_mode:
+            return ErrorResponse("EXEC without MULTI")
+        
+        for command, args in self.transaction_queue:
+            await self.handle_command(command, *args)
+        
+        self.transaction_queue.clear()
+        self.multi_mode = False
+        return "OK"
+
+    
     # ---- Helper Functions ----
 
     def _parse_stream_field_value_pairs(self, pairs: tuple):
