@@ -72,7 +72,6 @@ class Redis:
         else:
             expire_at = self.epoch_zero  # no expiration
         self.kv_store[key] = {"value": value, "expire_at": expire_at}
-        print(self.kv_store)
         return "OK"
     
     def get(self, key: str) -> Optional[str]:
@@ -344,7 +343,7 @@ class Redis:
         start_time = datetime.now(tz=timezone.utc)
         while True:
             results = fetch_entries()
-            
+            print(results)
             if results:
                 return results
             
