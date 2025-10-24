@@ -36,6 +36,7 @@ class Redis:
             "INCR": (self.incr, 1),
             "MULTI": (self.multi, 0),
             "EXEC": (self.exec, 0),
+            "DISCARD": (self.discard, 0),
         }
 
     async def handle_command(self,client: Connection,  command: str, *args: Any):
@@ -51,7 +52,7 @@ class Redis:
             return None
         if len(args) < num_args:
             return None
-        if command == "MULTI":
+        if command in ["MULTI", "DISCARD"]:
             return handler(client)
         if command == "EXEC":
             return await handler(client)
@@ -372,6 +373,14 @@ class Redis:
             result.append(await self.handle_command(client, command, *args))
         client.transaction_queue.clear()
         return result
+    
+    def discard(self, client) -> str:
+        """Discard all commands issue after MULTI."""
+        if not client.in_multi:
+            return ErrorResponse("DISCARD without MULTI")
+        client.transaction_queue.clear()
+        client.in_multi = False
+        return "OK"
         
     # ---- Helper Functions ----
 
