@@ -2,9 +2,23 @@ import asyncio
 from .redis import Redis
 from .parsing import parse_request, build_response
 from .connection import Connection
+import argparse
+
+arg_parser = argparse.ArgumentParser()
 
 BUF_SIZE = 1024
 redis_obj = Redis()
+
+def parsed_args():
+    """Parse command line arguments."""
+    arg_parser.add_argument(
+        "--port",
+        type=int,
+        default=6379,
+        help="Port number for the Redis server to listen on (default: 6379)",
+    )
+    return arg_parser.parse_args()
+
 
 async def handle_client(reader, writer):
     """
@@ -63,8 +77,11 @@ async def handle_client(reader, writer):
     # await writer.wait_closed()
 
 async def main():
+    """Main entry point to start the Redis server."""
     
-    server = await asyncio.start_server(handle_client, 'localhost', 6379)
+    args = parsed_args()
+    
+    server = await asyncio.start_server(handle_client, 'localhost', args.port)
     addr = server.sockets[0].getsockname()
     print(f'Server is listening on {addr}')
     async with server:
