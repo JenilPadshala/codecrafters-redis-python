@@ -228,14 +228,14 @@ class Redis:
             return NullArray()
 
         # parse start and end IDs
-        start_id = (0, 0) if start == '-' else self._parse_id(start)
-        end_id = (float('inf'), float('inf')) if end == '+' else self._parse_id(end)
+        start_id = (0, 0) if start == '-' else self._parse_id(start, key)
+        end_id = (float('inf'), float('inf')) if end == '+' else self._parse_id(end, key)
 
         stream = self.stream_store[key]
         result = deque()
         # Iterate over stream and collect entries within range
         for entry in stream:
-            entry_id = self._parse_id(entry["id"])
+            entry_id = self._parse_id(entry["id"], key)
             if entry_id[0] >= start_id[0] and entry_id[0] <= end_id[0]:
                 if entry_id[0] == start_id[0] and entry_id[1] < start_id[1]:
                     continue
@@ -326,7 +326,7 @@ class Redis:
                 entries = deque()
 
                 for entry in stream:
-                    entry_id = self._parse_id(entry["id"])
+                    entry_id = self._parse_id(entry["id"], key)
                     if entry_id[0] > given_id[0] or (entry_id[0] == given_id[0] and entry_id[1] > given_id[1]):
                         entries.append([entry["id"], [item for pair in entry["data"].items() for item in pair]])
 
