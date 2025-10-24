@@ -414,7 +414,7 @@ class Redis:
         """Helper function to parse a stream ID string into (milliseconds, sequence)."""
         parts = id_str.split('-')
 
-        if parts[1] == '$':
+        if parts[0] == '$':
             # Get the last entry's ID for the given key
             if key and key in self.stream_store and len(self.stream_store[key]) > 0:
                 last_entry_id = self.stream_store[key][-1]["id"]
