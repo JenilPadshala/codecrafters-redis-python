@@ -37,6 +37,7 @@ class Redis:
             "MULTI": (self.multi, 0),
             "EXEC": (self.exec, 0),
             "DISCARD": (self.discard, 0),
+            "INFO": (self.info, 0),
         }
 
     async def handle_command(self,client: Connection,  command: str, *args: Any):
@@ -374,14 +375,20 @@ class Redis:
         client.transaction_queue.clear()
         return result
     
-    def discard(self, client) -> str:
+    def discard(self, client) -> Union[str, ErrorResponse]:
         """Discard all commands issue after MULTI."""
         if not client.in_multi:
             return ErrorResponse("DISCARD without MULTI")
         client.transaction_queue.clear()
         client.in_multi = False
         return "OK"
-        
+    
+    def info(self, args: str) -> bytes:
+        """Return information and statistics about the server."""
+        info_lines = ""
+        if "REPLICATION" in args.upper():
+            info_lines += "role:master"
+        return info_lines.encode()
     # ---- Helper Functions ----
 
     def _parse_stream_field_value_pairs(self, pairs: tuple):
