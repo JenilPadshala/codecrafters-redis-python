@@ -7,12 +7,16 @@ import socket
 BUF_SIZE = 1024
 
 class RedisServer:
-    def __init__(self, host='localhost', port=6379, replicaof=None):
+    def __init__(self, host='localhost', port=6379, role='master', replicaof=None):
         self.host = host
         self.port = port
         self.replicaof = replicaof
         self.redis_instance = Redis(self)
         self.clients = set()
+        self.ip_address = socket.gethostbyname(self.host)
+        self.role = role
+        self.master_replid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
+        self.master_repli_offset = 0
         
         # determine role
         if replicaof:
@@ -54,33 +58,30 @@ class RedisServer:
     
     async def start(self):
         """Start the Redis server."""
-        # Start the server on primary port
-        servers = deque()
-        primary_ip = socket.gethostbyname(self.host)
+        return await asyncio.start_server(self.handle_client, self.host, self.port)
+    
+    async def connect_to_master(self):
+        """Connect to the master server for replication."""
+        if self.role != "slave":
+            return
+        try:
+            reader, writer = await asyncio.open_connection(
+                self.master_host, 
+                self.master_port
+            )
+            print(f"Connected to master at {self.master_host}:{self.master_port}")
+            await self.repl_handshake(reader, writer)
+        except Exception as e:
+            print(f"Failed to connect to master: {e}")
 
-        primary_server = await asyncio.start_server(self.handle_client, self.host, self.port)
-        servers.append(primary_server)
+    async def repl_handshake(self, reader, writer):
+        """Perform the replication handshake with the master server."""
+        # Send PING command to master
+        ping_command = build_response(["PING"])
+        writer.write(ping_command)
+        await writer.drain()
+        print("Sent PING to master for replication handshake")
 
-        # Optionally, start replica server
-        if self.replicaof:
-            master_host, master_port_str = self.replicaof.split(" ")
-            master_port = int(master_port_str)
-            master_ip = socket.gethostbyname(master_host)
-
-            #avoid duplicate bind
-            if (master_ip, master_port) != (primary_ip, self.port):
-                try:
-                    replica_server = await asyncio.start_server(self.handle_client, master_host, master_port)
-                    servers.append(replica_server)
-                except OSError as e:
-                    print(f"Failed to bind replica server on {master_host}:{master_port}: {e}")
-        
-        # Print all listening addresses
-        addrs = [sock.getsockname() for s in servers for sock in s.sockets]
-        print(f"Servers listening on: {addrs}")
-
-        # Run all servers concurrently
-        async with asyncio.TaskGroup() as tg:
-            for s in servers:
-                tg.create_task(s.serve_forever())
-
+        # Read master's response
+        response = await reader.read(BUF_SIZE)
+        print(f"Received from master: {response.decode()}")

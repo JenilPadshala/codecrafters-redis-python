@@ -388,7 +388,7 @@ class Redis:
         """Return information and statistics about the server."""
         info_lines = ""
         if "REPLICATION" in args.upper():
-            info_lines += f"role:{self.server.role}"
+            info_lines += f"role:{self.server.role}\nmaster_replid:{self.server.master_replid}\nmaster_repl_offset:{self.server.master_repli_offset}\n"
         return info_lines.encode()
     # ---- Helper Functions ----
 
