@@ -76,12 +76,30 @@ class RedisServer:
 
     async def repl_handshake(self, reader, writer):
         """Perform the replication handshake with the master server."""
-        # Send PING command to master
+        # 1) PING the master
         ping_command = build_response(["PING"])
         writer.write(ping_command)
         await writer.drain()
-        print("Sent PING to master for replication handshake")
-
-        # Read master's response
         response = await reader.read(BUF_SIZE)
-        print(f"Received from master: {response.decode()}")
+        if b"+PONG" not in response:
+            print("Failed to receive PONG from master")
+            return
+        
+        # 2) REPLCONF listening-port <port>
+        replconf_command = build_response(["REPLCONF", "listening-port", str(self.port)])
+        writer.write(replconf_command)
+        await writer.drain()
+        response = await reader.read(BUF_SIZE)
+        if b"+OK" not in response:
+            print("Failed to receive OK for REPLCONF from master")
+            return
+        
+        # 3) REPLCONF capa psync2
+        replconf_2_command = build_response(["REPLCONF", "capa", "psync2"])
+        writer.write(replconf_2_command)
+        await writer.drain()
+        response = await reader.read(BUF_SIZE)
+        if b"+OK" not in response:
+            print("Failed to receive OK for REPLCONF capa from master")
+            return
+        print("Replication handshake with master completed")

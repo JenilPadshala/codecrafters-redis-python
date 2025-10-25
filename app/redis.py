@@ -39,6 +39,7 @@ class Redis:
             "EXEC": (self.exec, 0),
             "DISCARD": (self.discard, 0),
             "INFO": (self.info, 0),
+            "REPLCONF": (self.replconf, 2),
         }
 
     async def handle_command(self,client: Connection,  command: str, *args: Any):
@@ -390,6 +391,25 @@ class Redis:
         if "REPLICATION" in args.upper():
             info_lines += f"role:{self.server.role}\nmaster_replid:{self.server.master_replid}\nmaster_repl_offset:{self.server.master_repli_offset}\n"
         return info_lines.encode()
+    
+    def replconf(self, *args: str) -> Union[str, ErrorResponse]:
+        """Handle REPLCONF command from replica servers."""
+        if len(args) < 2:
+            return ErrorResponse("REPLCONF requires at least two arguments")
+        if args[0].lower() == "listening-port":
+            try:
+                port = int(args[1])
+                return "OK"
+            except ValueError:
+                return ErrorResponse("Invalid port number")
+        elif args[0].lower() == "capa":
+            if args[1].lower() == "psync2":
+                return "OK"
+            else:
+                return ErrorResponse("Unsupported capability")
+        else:
+            return ErrorResponse("Unknown REPLCONF option")
+    
     # ---- Helper Functions ----
 
     def _parse_stream_field_value_pairs(self, pairs: tuple):
