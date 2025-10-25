@@ -40,6 +40,7 @@ class Redis:
             "DISCARD": (self.discard, 0),
             "INFO": (self.info, 0),
             "REPLCONF": (self.replconf, 2),
+            "PSYNC": (self.psync, 2),
         }
 
     async def handle_command(self,client: Connection,  command: str, *args: Any):
@@ -410,6 +411,13 @@ class Redis:
         else:
             return ErrorResponse("Unknown REPLCONF option")
     
+    def psync(self, *args: str) -> Union[str, ErrorResponse]:
+        """Handle PSYNC command from replica servers."""
+        if len(args) < 2:
+            return ErrorResponse("PSYNC requires two arguments")
+        replid = args[0]
+        offset = args[1]
+        return f"+FULLRESYNC {self.server.master_replid} {self.server.master_repl_offset}\r\n"
     # ---- Helper Functions ----
 
     def _parse_stream_field_value_pairs(self, pairs: tuple):

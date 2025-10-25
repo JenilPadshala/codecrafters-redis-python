@@ -16,7 +16,7 @@ class RedisServer:
         self.ip_address = socket.gethostbyname(self.host)
         self.role = role
         self.master_replid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
-        self.master_repli_offset = 0
+        self.master_repl_offset = 0
         
         # determine role
         if replicaof:
@@ -103,3 +103,11 @@ class RedisServer:
             print("Failed to receive OK for REPLCONF capa from master")
             return
         print("Replication handshake with master completed")
+
+        # 4) PSYNC ? -1
+        psync_command = build_response(["PSYNC", "?", "-1"])
+        writer.write(psync_command)
+        await writer.drain()
+        response = await reader.read(BUF_SIZE)
+        if b"+FULLRESYNC" in response:
+            print(f"received FULLRESYNC from master: {response.decode().strip()}")
